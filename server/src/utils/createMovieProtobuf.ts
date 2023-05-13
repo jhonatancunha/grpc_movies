@@ -1,5 +1,5 @@
 import { Document, WithId } from "mongodb";
-import { Cast, Country, Director, Genre, Language, Movie, Writer } from "../generated/src/proto/movies_pb";
+import { Cast, Country, Director, Genre, Language, Movie, Writer } from "../generated/movies_pb";
 
 export function createMovieProtobuf(movie: WithId<Document>): Movie{
   try {

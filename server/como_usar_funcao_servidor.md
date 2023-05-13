@@ -1,15 +1,4 @@
-### Identificadores de requisição
-
-```ts
-const OP = {
-  CREATE: 1,
-  FIND_BY_ID: 2,
-  UPDATE: 3,
-  DELETE: 4,
-  FIND_BY_ACTOR: 5,
-  FIND_BY_CATEGORY: 6,
-};
-```
+Veja o arquivo `Insomnia_2023-05-13.json`
 
 ### CREATE
 
@@ -17,11 +6,9 @@ Construa o objeto de `Request` da seguinte forma:
 
 ```ts
 {
-    request_id: 1,
     movie: {
         // ... DADOS DO FILME A SER CRIADO
     },
-    data: null, // Não precisa enviar
 }
 ```
 
@@ -31,8 +18,6 @@ Construa o objeto de `Request` da seguinte forma:
 
 ```ts
 {
-    request_id: 2,
-    movie: null, // Não precisa enviar
     data: "id_aqui",
 }
 ```
@@ -43,7 +28,6 @@ Construa o objeto de `Request` da seguinte forma:
 
 ```ts
 {
-    request_id: 3,
      movie: {
         // ... NOVOS DADOS DO FILME
     },
@@ -57,8 +41,6 @@ Construa o objeto de `Request` da seguinte forma:
 
 ```ts
 {
-    request_id: 4,
-    movie: null,  // Não precisa enviar
     data: "id_do_filme_a_ser_deletado",
 }
 ```
@@ -69,8 +51,6 @@ Construa o objeto de `Request` da seguinte forma:
 
 ```ts
 {
-    request_id: 5,
-    movie: null,  // Não precisa enviar
     data: "nome_do_ator",
 }
 ```
@@ -81,8 +61,6 @@ Construa o objeto de `Request` da seguinte forma:
 
 ```ts
 {
-    request_id: 6,
-    movie: null,  // Não precisa enviar
     data: "nome_da_categoria",
 }
 ```

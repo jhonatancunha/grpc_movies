@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createMovieProtobuf = void 0;
-var movies_pb_1 = require("../generated/src/proto/movies_pb");
+var movies_pb_1 = require("../generated/movies_pb");
 function createMovieProtobuf(movie) {
     var _a, _b, _c, _d, _e, _f;
     try {

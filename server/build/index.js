@@ -1,4 +1,19 @@
 "use strict";
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -62,10 +77,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var net_1 = __importDefault(require("net"));
 var dotenv = __importStar(require("dotenv"));
 dotenv.config();
-var movies_pb_1 = require("./generated/src/proto/movies_pb");
 var mongodb_1 = require("mongodb");
 var createMovieProtobuf_1 = require("./utils/createMovieProtobuf");
 var OP = {
@@ -82,9 +95,6 @@ var database = process.env.DB_NAME || "sample_mflix";
 var table = process.env.COLLECTION_NAME || "movies";
 var db;
 var collection;
-// SERVIDOR SOCKET
-var port = 6666;
-var server = new net_1.default.Server();
 var client = new mongodb_1.MongoClient(uri, {
     serverApi: {
         version: mongodb_1.ServerApiVersion.v1,
@@ -191,7 +201,6 @@ function createMovie(collection, movie) {
                     return [2 /*return*/, String(created.insertedId)];
                 case 2:
                     error_4 = _a.sent();
-                    console.log('error', error_4);
                     return [2 /*return*/, null];
                 case 3: return [2 /*return*/];
             }
@@ -280,166 +289,25 @@ function updateMovie(collection, id, movie) {
         });
     });
 }
-function handleSocketRequest(socket, req) {
-    return __awaiter(this, void 0, void 0, function () {
-        var protoResponse, id, movie, data, response, _a, createdMovie, cast, genre, error_8;
-        return __generator(this, function (_b) {
-            switch (_b.label) {
-                case 0:
-                    protoResponse = new movies_pb_1.Response();
-                    _b.label = 1;
-                case 1:
-                    _b.trys.push([1, 20, , 21]);
-                    id = req.getRequestId();
-                    movie = req.getMovie();
-                    data = req.getData();
-                    response = void 0;
-                    protoResponse.setResponseId(id);
-                    _a = id;
-                    switch (_a) {
-                        case OP.CREATE: return [3 /*break*/, 2];
-                        case OP.FIND_BY_ID: return [3 /*break*/, 7];
-                        case OP.UPDATE: return [3 /*break*/, 9];
-                        case OP.DELETE: return [3 /*break*/, 12];
-                        case OP.FIND_BY_ACTOR: return [3 /*break*/, 14];
-                        case OP.FIND_BY_CATEGORY: return [3 /*break*/, 16];
-                    }
-                    return [3 /*break*/, 18];
-                case 2:
-                    if (!movie) return [3 /*break*/, 6];
-                    return [4 /*yield*/, createMovie(collection, movie)];
-                case 3:
-                    response = _b.sent();
-                    if (!!response) return [3 /*break*/, 4];
-                    protoResponse.setMessage("Erro na tentativa de cria\u00E7\u00E3o do filme");
-                    protoResponse.setSucess(false);
-                    return [3 /*break*/, 6];
-                case 4:
-                    protoResponse.setMessage("Filme criado com sucesso");
-                    protoResponse.setSucess(true);
-                    return [4 /*yield*/, getMovieById(collection, response)];
-                case 5:
-                    createdMovie = _b.sent();
-                    if (createdMovie)
-                        protoResponse.addMovies(createdMovie);
-                    _b.label = 6;
-                case 6: return [3 /*break*/, 19];
-                case 7: return [4 /*yield*/, getMovieById(collection, data)];
-                case 8:
-                    response = _b.sent();
-                    if (!response) {
-                        protoResponse.setMessage("Erro na busca do filme com o id ".concat(data));
-                        protoResponse.setSucess(false);
-                    }
-                    else {
-                        protoResponse.setMessage("Filme encontrado com sucesso");
-                        protoResponse.setSucess(true);
-                        protoResponse.addMovies(response);
-                    }
-                    return [3 /*break*/, 19];
-                case 9:
-                    if (!movie) return [3 /*break*/, 11];
-                    return [4 /*yield*/, updateMovie(collection, data, movie)];
-                case 10:
-                    response = _b.sent();
-                    if (!response) {
-                        protoResponse.setMessage("Erro na tentativa de atualiza\u00E7\u00E3o do filme com o id ".concat(movie.getId()));
-                        protoResponse.setSucess(false);
-                    }
-                    else {
-                        protoResponse.setMessage("Filme atualizado com sucesso");
-                        protoResponse.setSucess(true);
-                        protoResponse.addMovies(movie);
-                    }
-                    _b.label = 11;
-                case 11: return [3 /*break*/, 19];
-                case 12: return [4 /*yield*/, deleteMovie(collection, data)];
-                case 13:
-                    response = _b.sent();
-                    if (!response) {
-                        protoResponse.setMessage("Erro na tentativa de dele\u00E7\u00E3o do filme com o id ".concat(data));
-                        protoResponse.setSucess(false);
-                    }
-                    else {
-                        protoResponse.setMessage("Filme deletado com sucesso");
-                        protoResponse.setSucess(true);
-                    }
-                    return [3 /*break*/, 19];
-                case 14:
-                    cast = new movies_pb_1.Cast();
-                    cast.setActor(data);
-                    return [4 /*yield*/, getMoviesByActor(collection, cast)];
-                case 15:
-                    response = _b.sent();
-                    response.map(function (movie) { return protoResponse.addMovies(movie); });
-                    if (!response.length) {
-                        protoResponse.setMessage("Nenhum filme do ator ".concat(data, " foi encontrado"));
-                        protoResponse.setSucess(false);
-                    }
-                    else {
-                        protoResponse.setMessage("Busca conclu\u00EDda com sucesso");
-                        protoResponse.setSucess(true);
-                    }
-                    return [3 /*break*/, 19];
-                case 16:
-                    genre = new movies_pb_1.Genre();
-                    genre.setName(data);
-                    return [4 /*yield*/, getMoviesByGenre(collection, genre)];
-                case 17:
-                    response = _b.sent();
-                    response.map(function (movie) { return protoResponse.addMovies(movie); });
-                    if (!response.length) {
-                        protoResponse.setMessage("Nenhum filme da categoria ".concat(data, " foi encontrado"));
-                        protoResponse.setSucess(false);
-                    }
-                    else {
-                        protoResponse.setMessage("Busca conclu\u00EDda com sucesso");
-                        protoResponse.setSucess(true);
-                    }
-                    return [3 /*break*/, 19];
-                case 18:
-                    protoResponse.setMessage("Identificador de requisi\u00E7\u00E3o inv\u00E1lido (".concat(id, ")"));
-                    protoResponse.setSucess(false);
-                    return [3 /*break*/, 19];
-                case 19:
-                    socket.write(protoResponse.serializeBinary());
-                    return [3 /*break*/, 21];
-                case 20:
-                    error_8 = _b.sent();
-                    console.log('error[handleSocketRequest]:', error_8);
-                    protoResponse.setMessage(JSON.stringify(error_8));
-                    protoResponse.setSucess(false);
-                    socket.write(protoResponse.serializeBinary());
-                    return [3 /*break*/, 21];
-                case 21: return [2 /*return*/];
-            }
-        });
-    });
-}
-server.listen(port, function () {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    console.log("Servidor socket TCP iniciado em http://localhost:".concat(port));
-                    return [4 /*yield*/, client.connect()];
-                case 1:
-                    _a.sent();
-                    db = client.db(database);
-                    collection = db.collection(table);
-                    return [2 /*return*/];
-            }
-        });
-    });
-});
-server.on('connection', function (socket) {
-    console.log('Uma nova conexão foi estabelecida.');
-    socket.on('data', function (chunk) {
-        console.log('chunk', chunk);
-        var req = movies_pb_1.Request.deserializeBinary(chunk);
-        handleSocketRequest(socket, req);
-    });
-    socket.on('error', function (err) {
-        console.log("Error: ".concat(err));
-    });
-});
+var grpc_1 = __importDefault(require("grpc"));
+var proto_loader_1 = require("@grpc/proto-loader");
+var movies_grpc_pb_1 = require("./generated/movies_grpc_pb");
+var packageDefinition = (0, proto_loader_1.loadSync)('src/proto/movies.proto');
+var proto = grpc_1.default.loadPackageDefinition(packageDefinition);
+console.log('proto', proto);
+var MongoMovies = /** @class */ (function (_super) {
+    __extends(MongoMovies, _super);
+    function MongoMovies() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    return MongoMovies;
+}(movies_grpc_pb_1.MongoMoviesService));
+// await client.connect();
+// db = client.db(database);
+// collection = db.collection(table);
+// class MongoMovies implements MongoMoviesServices {
+// }
+// const server = new grpc.Server();
+// server.addService(MongoMoviesService, new Greeter());
+// server.bind('0.0.0.0:50051', grpc.ServerCredentials.createInsecure());
+// server.start();

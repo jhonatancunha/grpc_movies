@@ -1,5 +1,5 @@
-// package: 
-// file: src/proto/movies.proto
+// package: mongomovies
+// file: movies.proto
 
 import * as jspb from "google-protobuf";
 
@@ -224,9 +224,6 @@ export namespace Movie {
 }
 
 export class Request extends jspb.Message {
-  getRequestId(): number;
-  setRequestId(value: number): void;
-
   hasMovie(): boolean;
   clearMovie(): void;
   getMovie(): Movie | undefined;
@@ -247,16 +244,12 @@ export class Request extends jspb.Message {
 
 export namespace Request {
   export type AsObject = {
-    requestId: number,
     movie?: Movie.AsObject,
     data: string,
   }
 }
 
 export class Response extends jspb.Message {
-  getResponseId(): number;
-  setResponseId(value: number): void;
-
   getSucess(): boolean;
   setSucess(value: boolean): void;
 
@@ -280,7 +273,6 @@ export class Response extends jspb.Message {
 
 export namespace Response {
   export type AsObject = {
-    responseId: number,
     sucess: boolean,
     message: string,
     moviesList: Array<Movie.AsObject>,

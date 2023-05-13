@@ -1,34 +1,23 @@
-import Net, { Socket } from 'net'
 import * as dotenv from 'dotenv'
 dotenv.config()
 
-import { Movie, Cast, Genre, Request, Response } from './generated/src/proto/movies_pb'
-import {  MongoClient, ObjectId, ServerApiVersion } from 'mongodb';
+import { Request, Response } from './generated/movies_pb'
+import { MongoClient, ObjectId, ServerApiVersion } from 'mongodb';
 import { Collection } from 'mongodb';
 import { createMovieProtobuf } from './utils/createMovieProtobuf';
 import { requestCreateValidation, requestUpdateValidation, requestGetValidation, requestDeleteValidation } from './validation';
 import { ValidationError } from 'yup';
 
-const OP = {
-    'CREATE': 1,
-    'FIND_BY_ID': 2,
-    'UPDATE': 3,
-    'DELETE': 4,
-    'FIND_BY_ACTOR': 5,
-    'FIND_BY_CATEGORY': 6,
-}
+import grpc from 'grpc';
+import { MongoMoviesService } from './generated/movies_grpc_pb';
 
 // SERVIDOR MONGO
 const uri = process.env.MONGO_URI || '';
 const database = process.env.DB_NAME || "sample_mflix";
 const table = process.env.COLLECTION_NAME || "movies";
 let db;
-let collection: Collection;
+let collections: Collection;
 
-
-// SERVIDOR SOCKET
-const port = 6666;
-const server = new Net.Server();
 
 
 const client = new MongoClient(uri,  {
@@ -39,290 +28,287 @@ const client = new MongoClient(uri,  {
     }
 });
 
-
-async function getMovieById(collections: Collection, id: string){
+async function connectMongo(){
     try {
-        const query = { _id: new ObjectId(id) };
+        await client.connect();
+        db = client.db(database);
+        collections = db.collection(table);
+    } catch (error) {
+        console.log('error mongo', error);
+    }
+}
+
+async function myGetMovieById(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
+
+    const protoResponse = new Response();
+    const data = call.request.getData();
+
+    try {
+
+        const request = call.request.toObject()
+        requestGetValidation.validateSync(request);
+
+        const query = { _id: new ObjectId(data) };
         const mongoMovie = await collections.findOne(query);
 
-        if(!mongoMovie) return null;
+        if(!mongoMovie) throw new Error();
 
         const protoMovie = createMovieProtobuf(mongoMovie)
+        protoResponse.setMessage(`Filme encontrado com sucesso`);
+        protoResponse.setSucess(true);
+        protoResponse.addMovies(protoMovie);
 
-        return protoMovie;
     } catch (error) {
-        return null;
+        if (error instanceof ValidationError) {
+            protoResponse.setMessage(error.message);
+        } else{
+            protoResponse.setMessage(`Erro na busca do filme com o id ${data}`);
+        }
+        protoResponse.setSucess(false);
+    } finally{
+        callback(null, protoResponse);
     }
 }
 
-async function deleteMovie(collections: Collection, id: string): Promise<boolean>{
+async function myDeleteMovie(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
+
+    const protoResponse = new Response();
+    const data = call.request.getData();
+
     try {
-        const query = { _id: new ObjectId(id) };
+
+        const request = call.request.toObject()
+        requestDeleteValidation.validateSync(request);
+
+        const query = { _id: new ObjectId(data) };
         const result = await collections.deleteOne(query);
 
-        if(!result || !result.deletedCount){
-            return false;
+        if(!result || !result.deletedCount) throw new Error();
+
+        protoResponse.setMessage(`Filme deletado com sucesso`);
+        protoResponse.setSucess(true);
+    } catch (error) {
+        if (error instanceof ValidationError) {
+            protoResponse.setMessage(error.message);
+        } else {
+            protoResponse.setMessage(`Erro na tentativa de deleção do filme com o id ${data}`);
+        }
+        protoResponse.setSucess(false);
+    } finally{
+        callback(null, protoResponse);
+    }
+}
+
+async function myGetAllMovies(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
+    const protoResponse = new Response();
+
+    try {
+        const moviesMongo = await collections.find({}).toArray();
+        const protoMovies = moviesMongo.map(item => createMovieProtobuf(item));
+
+        protoResponse.setMoviesList(protoMovies);
+    } catch (error) {
+        protoResponse.setMoviesList([]);
+    } finally{
+        callback(null, protoResponse);
+    }
+}
+
+async function myCreateMovie(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
+    const protoResponse = new Response();
+    const movie = call.request.getMovie();
+
+    try {
+        const data = call.request.toObject()
+
+        requestCreateValidation.validateSync(data);
+
+        const jsonMovie = movie?.toObject();
+        let created = null;
+
+        if(jsonMovie){
+            created = await collections.insertOne({
+                plot: jsonMovie.plot,
+                genres: jsonMovie.genresList.map(obj => obj.name),
+                runtime: jsonMovie.runtime,
+                cast: jsonMovie.castList.map(obj => obj.actor),
+                num_mflix_comments: jsonMovie.numMflixComments,
+                title: jsonMovie.title,
+                fullplot: jsonMovie.fullplot,
+                countries: jsonMovie.countriesList.map(obj => obj.name),
+                released: jsonMovie.released,
+                directors: jsonMovie.directorsList.map(obj => obj.name),
+                rated: jsonMovie.rated,
+                lastupdate: jsonMovie.lastupdated,
+                year: jsonMovie.year,
+                type: jsonMovie.type,
+                writers: jsonMovie.writersList.map(obj => obj.name),
+                languages: jsonMovie.languagesList.map(obj => obj.name),
+            });
         }
 
-        return true;
-    } catch (error) {
-        return false;
-    }
-}
-
-async function getAllMovies(collection: Collection){
-    try {
-        const moviesMongo = await collection.find({}).toArray();
-        const protoMovies = moviesMongo.map(item => createMovieProtobuf(item));
-
-        return protoMovies;
-    } catch (error) {
-        return [];
-    }
-}
-
-async function createMovie(collection: Collection, movie: Movie): Promise<string | null>{
-    try {
-
-        const jsonMovie = movie.toObject();
-
-        const created = await collection.insertOne({
-        plot: jsonMovie.plot,
-        genres: jsonMovie.genresList.map(obj => obj.name),
-        runtime: jsonMovie.runtime,
-        cast: jsonMovie.castList.map(obj => obj.actor),
-        num_mflix_comments: jsonMovie.numMflixComments,
-        title: jsonMovie.title,
-        fullplot: jsonMovie.fullplot,
-        countries: jsonMovie.countriesList.map(obj => obj.name),
-        released: jsonMovie.released,
-        directors: jsonMovie.directorsList.map(obj => obj.name),
-        rated: jsonMovie.rated,
-        lastupdate: jsonMovie.lastupdated,
-        year: jsonMovie.year,
-        type: jsonMovie.type,
-        writers: jsonMovie.writersList.map(obj => obj.name),
-        languages: jsonMovie.languagesList.map(obj => obj.name),
-        });
-
-        if(!created) return null;
-
-        return String(created.insertedId);
-    } catch (error) {
-        return null;
-    }
-}
-
-async function getMoviesByGenre(collection: Collection, genre: Genre){
-    try {
-
-        const value = genre.getName();
-        const query = { genres: { $elemMatch: { $eq: value } } };
-
-        const moviesMongo = await collection.find(query).toArray();
-        const protoMovies = moviesMongo.map(item => createMovieProtobuf(item));
-
-        return protoMovies;
-    } catch (error) {
-        return []
-    }
-}
-
-async function getMoviesByActor(collection: Collection, cast: Cast){
-    try {
-
-        const actor = cast.getActor();
-
-        const query = { cast: { $elemMatch: { $eq: actor } } };
-
-        const moviesMongo = await collection.find(query).toArray();
-        const protoMovies = moviesMongo.map(item => createMovieProtobuf(item));
-
-        return protoMovies;
-    } catch (error) {
-        return []
-    }
-}
-
-async function updateMovie(collection: Collection, id: string, movie: Movie){
-    try {
-
-        const jsonMovie = movie.toObject();
-        const idObject = new ObjectId(id);
-
-        const { acknowledged } = await collection.updateOne({ _id: idObject }, { $set: {
-            plot: jsonMovie.plot,
-            genres: jsonMovie.genresList.map(obj => obj.name),
-            runtime: jsonMovie.runtime,
-            cast: jsonMovie.castList.map(obj => obj.actor),
-            num_mflix_comments: jsonMovie.numMflixComments,
-            title: jsonMovie.title,
-            fullplot: jsonMovie.fullplot,
-            countries: jsonMovie.countriesList.map(obj => obj.name),
-            released: jsonMovie.released,
-            directors: jsonMovie.directorsList.map(obj => obj.name),
-            rated: jsonMovie.rated,
-            lastupdate: jsonMovie.lastupdated,
-            year: jsonMovie.year,
-            type: jsonMovie.type,
-            writers: jsonMovie.writersList.map(obj => obj.name),
-            languages: jsonMovie.languagesList.map(obj => obj.name),
-        }});
-
-        return acknowledged;
-    } catch (error) {
-        throw error;
-    }
-}
-
-
-async function handleSocketRequest(socket: Socket, req: Request){
-  const protoResponse = new Response();
-
-  try{
-    const id: number = req.getRequestId();
-    const movie: Movie | undefined = req.getMovie();
-    const data: string = req.getData();
-
-    let response;
-    protoResponse.setResponseId(id);
-
-
-    switch(id){
-        case OP.CREATE:
-            requestCreateValidation.validateSync(protoResponse.toObject())
-
-            if(movie){
-                response = await createMovie(collection, movie)
-
-                if(!response){
-                    protoResponse.setMessage(`Erro na tentativa de criação do filme`);
-                    protoResponse.setSucess(false);
-                }else{
-                    protoResponse.setMessage(`Filme criado com sucesso`);
-                    protoResponse.setSucess(true);
-                    const createdMovie = await getMovieById(collection, response);
-                    if(createdMovie) protoResponse.addMovies(createdMovie)
-                }
-                }
-
-
-            break;
-        case OP.FIND_BY_ID:
-            requestGetValidation.validateSync(protoResponse.toObject())
-
-            response = await getMovieById(collection, data)
-
-            if(!response){
-                protoResponse.setMessage(`Erro na busca do filme com o id ${data}`);
-                protoResponse.setSucess(false);
-            }else{
-                protoResponse.setMessage(`Filme encontrado com sucesso`);
-                protoResponse.setSucess(true);
-                protoResponse.addMovies(response);
+        if(!created){
+            protoResponse.setMessage(`Erro na tentativa de criação do filme`);
+            protoResponse.setSucess(false);
+        }else{
+            protoResponse.setMessage(`Filme criado com sucesso`);
+            protoResponse.setSucess(true);
+            if(movie) {
+                movie.setId(String(created.insertedId));
+                protoResponse.addMovies(movie)
             }
+        }
+    } catch (error) {
 
-            break;
-        case OP.UPDATE:
-            requestUpdateValidation.validateSync(protoResponse.toObject())
+        if (error instanceof ValidationError) {
+            protoResponse.setMessage(error.message);
+        }else{
+            protoResponse.setMessage(`Erro na tentativa de criação do filme`);
+        }
 
-            if(movie){
-            response = await updateMovie(collection, data, movie);
-
-            if(!response){
-                protoResponse.setMessage(`Erro na tentativa de atualização do filme com o id ${movie.getId()}`);
-                protoResponse.setSucess(false);
-            }else{
-                protoResponse.setMessage(`Filme atualizado com sucesso`);
-                protoResponse.setSucess(true);
-                protoResponse.addMovies(movie);
-            }
-
-            }
-            break;
-        case OP.DELETE:
-            requestDeleteValidation.validateSync(protoResponse.toObject())
-
-            response = await deleteMovie(collection, data);
-
-            if(!response){
-                protoResponse.setMessage(`Erro na tentativa de deleção do filme com o id ${data}`);
-                protoResponse.setSucess(false);
-            }else{
-                protoResponse.setMessage(`Filme deletado com sucesso`);
-                protoResponse.setSucess(true);
-            }
-
-            break;
-        case OP.FIND_BY_ACTOR:
-
-            requestGetValidation.validateSync(protoResponse.toObject())
-
-            const cast = new Cast();
-            cast.setActor(data);
-            response = await getMoviesByActor(collection, cast);
-            response.map((movie) => protoResponse.addMovies(movie));
-
-            if(!response.length){
-                protoResponse.setMessage(`Nenhum filme do ator ${data} foi encontrado`);
-                protoResponse.setSucess(false);
-            }else{
-                protoResponse.setMessage(`Busca concluída com sucesso`);
-                protoResponse.setSucess(true);
-            }
-
-            break;
-        case OP.FIND_BY_CATEGORY:
-            requestGetValidation.validateSync(protoResponse.toObject())
-
-            const genre = new Genre();
-            genre.setName(data);
-            response = await getMoviesByGenre(collection, genre);
-            response.map((movie) => protoResponse.addMovies(movie));
-
-            if(!response.length){
-                protoResponse.setMessage(`Nenhum filme da categoria ${data} foi encontrado`);
-                protoResponse.setSucess(false);
-            }else{
-                protoResponse.setMessage(`Busca concluída com sucesso`);
-                protoResponse.setSucess(true);
-            }
-        break;
-    default:
-        protoResponse.setMessage(`Identificador de requisição inválido (${id})`);
         protoResponse.setSucess(false);
-        break;
+    } finally {
+        callback(null, protoResponse);
     }
+}
 
-    socket.write(protoResponse.serializeBinary());
-  }catch(error){
-    if (error instanceof ValidationError) {
-      protoResponse.setMessage(error.message);
-      protoResponse.setSucess(false);
-      socket.write(protoResponse.serializeBinary());
+async function myGetMoviesByGenre(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
+
+    const protoResponse = new Response();
+    const data = call.request.getData();
+
+    try {
+        requestGetValidation.validateSync(call.request.toObject());
+
+        const query = { genres: { $elemMatch: { $eq: data } } };
+
+        const moviesMongo = await collections.find(query).toArray();
+        const protoMovies = moviesMongo.map(item => createMovieProtobuf(item));
+
+        if(protoMovies.length){
+            protoResponse.setMoviesList(protoMovies);
+        }else{
+            protoResponse.setMessage(`Nenhum filme encontrado com o gênero ${data}`);
+        }
+
+    } catch (error) {
+        if (error instanceof ValidationError) {
+            protoResponse.setMessage(error.message);
+        } else {
+            protoResponse.setMessage(`Erro durante a busca pelo filme no banco de dados.`);
+        }
+        protoResponse.setSucess(false);
+        protoResponse.setMoviesList([]);
+    } finally {
+        callback(null, protoResponse);
     }
-  }
+}
+
+async function myGetMoviesByActor(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
+    const protoResponse = new Response();
+    const data = call.request.getData();
+
+    try {
+
+        requestGetValidation.validateSync(call.request.toObject());
+
+        const query = { cast: { $elemMatch: { $eq: data } } };
+
+        const moviesMongo = await collections.find(query).toArray();
+        const protoMovies = moviesMongo.map(item => createMovieProtobuf(item));
+
+        if(protoMovies.length){
+            protoResponse.setMoviesList(protoMovies);
+        }else{
+            protoResponse.setMessage(`Nenhum filme encontrado com o ator ${data}`);
+        }
+
+    } catch (error) {
+        if (error instanceof ValidationError) {
+            protoResponse.setMessage(error.message);
+        } else {
+            protoResponse.setMessage(`Erro durante a busca pelo filme no banco de dados.`);
+        }
+        protoResponse.setSucess(false);
+        protoResponse.setMoviesList([]);
+    } finally {
+        callback(null, protoResponse);
+    }
+}
+
+async function myUpdateMovie(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
+    const protoResponse = new Response();
+    const idMovie = call.request.getData();
+    const movie = call.request.getMovie();
+
+    try {
+
+        requestUpdateValidation.validateSync(call.request.toObject());
+
+        const jsonMovie = movie?.toObject();
+        const idObject = new ObjectId(idMovie);
+        let response = null;
+
+        if(jsonMovie){
+            response = await collections.updateOne({ _id: idObject }, { $set: {
+                plot: jsonMovie.plot,
+                genres: jsonMovie.genresList.map(obj => obj.name),
+                runtime: jsonMovie.runtime,
+                cast: jsonMovie.castList.map(obj => obj.actor),
+                num_mflix_comments: jsonMovie.numMflixComments,
+                title: jsonMovie.title,
+                fullplot: jsonMovie.fullplot,
+                countries: jsonMovie.countriesList.map(obj => obj.name),
+                released: jsonMovie.released,
+                directors: jsonMovie.directorsList.map(obj => obj.name),
+                rated: jsonMovie.rated,
+                lastupdate: jsonMovie.lastupdated,
+                year: jsonMovie.year,
+                type: jsonMovie.type,
+                writers: jsonMovie.writersList.map(obj => obj.name),
+                languages: jsonMovie.languagesList.map(obj => obj.name),
+            }});
+        }
+
+        if(!response){
+            protoResponse.setMessage(`Erro na tentativa de atualização do filme com o id ${idObject}`);
+            protoResponse.setSucess(false);
+        }else{
+            protoResponse.setMessage(`Filme atualizado com sucesso`);
+            protoResponse.setSucess(true);
+            protoResponse.addMovies(movie);
+        }
+    } catch (error) {
+        if (error instanceof ValidationError) {
+            protoResponse.setMessage(error.message);
+        } else {
+            protoResponse.setMessage(`Erro na tentativa de atualização do filme com o id ${idMovie}`);
+        }
+
+        protoResponse.setSucess(false);
+        protoResponse.setMoviesList([]);
+    } finally {
+        callback(null, protoResponse);
+    }
 }
 
 
-server.listen(port, async function() {
-  console.log(`Servidor socket TCP iniciado em http://localhost:${port}`);
+connectMongo().then(() => {
+    const server = new grpc.Server();
+    server.addService(MongoMoviesService, {
+        getMoviesById: myGetMovieById, //ok
+        createMovie: myCreateMovie,
+        deleteMovie: myDeleteMovie, //ok
+        updateMovie: myUpdateMovie,
+        getAllMovies: myGetAllMovies, //ok
+        getMoviesByActor: myGetMoviesByActor, //ok
+        getMoviesByGenre: myGetMoviesByGenre, //ok
+    });
 
-  await client.connect();
-  db = client.db(database);
-  collection = db.collection(table);
-});
+    server.bind('0.0.0.0:50051', grpc.ServerCredentials.createInsecure());
+    server.start();
+    console.log('Servidor iniciado em 0.0.0.0:50051');
+})
 
-server.on('connection', function(socket: Socket) {
-  console.log('Uma nova conexão foi estabelecida.');
 
-  socket.on('data', function(chunk: Buffer) {
-    console.log('chunk', chunk);
-    const req = Request.deserializeBinary(chunk);
-    handleSocketRequest(socket, req);
-  });
 
-  socket.on('error', function(err: Error) {
-      console.log(`Error: ${err}`);
-  });
-});
