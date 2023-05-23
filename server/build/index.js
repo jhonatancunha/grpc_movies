@@ -190,30 +190,32 @@ function myDeleteMovie(call, callback) {
 }
 function myGetAllMovies(call) {
     return __awaiter(this, void 0, void 0, function () {
-        var moviesMongo, _i, moviesMongo_1, movie, protoMovie, protoResponse, error_4, protoResponse;
+        var protoResponse, moviesMongo, _i, moviesMongo_1, movie, protoMovie, error_4;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    _a.trys.push([0, 2, 3, 4]);
-                    return [4 /*yield*/, collections.find({}).toArray()];
+                    protoResponse = new movies_pb_1.Response();
+                    _a.label = 1;
                 case 1:
+                    _a.trys.push([1, 3, 4, 5]);
+                    return [4 /*yield*/, collections.find({}).toArray()];
+                case 2:
                     moviesMongo = _a.sent();
                     for (_i = 0, moviesMongo_1 = moviesMongo; _i < moviesMongo_1.length; _i++) {
                         movie = moviesMongo_1[_i];
                         protoMovie = (0, createMovieProtobuf_1.createMovieProtobuf)(movie);
-                        protoResponse = new movies_pb_1.Response();
                         protoResponse.addMovies(protoMovie);
-                        call.write(protoResponse);
                     }
-                    return [3 /*break*/, 4];
-                case 2:
+                    return [3 /*break*/, 5];
+                case 3:
                     error_4 = _a.sent();
-                    protoResponse = new movies_pb_1.Response();
                     protoResponse.setMoviesList([]);
+                    return [3 /*break*/, 5];
+                case 4:
                     call.write(protoResponse);
-                    return [3 /*break*/, 4];
-                case 3: return [7 /*endfinally*/];
-                case 4: return [2 /*return*/];
+                    call.end();
+                    return [7 /*endfinally*/];
+                case 5: return [2 /*return*/];
             }
         });
     });
@@ -287,86 +289,88 @@ function myCreateMovie(call, callback) {
         });
     });
 }
-function myGetMoviesByGenre(call, callback) {
+function myGetMoviesByGenre(call) {
     return __awaiter(this, void 0, void 0, function () {
-        var protoResponse, data, query, moviesMongo, protoMovies, error_6;
+        var data, query, response, moviesMongo, _i, moviesMongo_2, item, protoMovie, error_6;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    protoResponse = new movies_pb_1.Response();
                     data = call.request.getData();
+                    query = { genres: { $elemMatch: { $eq: data } } };
+                    response = new movies_pb_1.Response();
                     _a.label = 1;
                 case 1:
                     _a.trys.push([1, 3, 4, 5]);
                     validation_1.requestGetValidation.validateSync(call.request.toObject());
-                    query = { genres: { $elemMatch: { $eq: data } } };
                     return [4 /*yield*/, collections.find(query).toArray()];
                 case 2:
                     moviesMongo = _a.sent();
-                    protoMovies = moviesMongo.map(function (item) { return (0, createMovieProtobuf_1.createMovieProtobuf)(item); });
-                    if (protoMovies.length) {
-                        protoResponse.setMoviesList(protoMovies);
+                    for (_i = 0, moviesMongo_2 = moviesMongo; _i < moviesMongo_2.length; _i++) {
+                        item = moviesMongo_2[_i];
+                        protoMovie = (0, createMovieProtobuf_1.createMovieProtobuf)(item);
+                        response.addMovies(protoMovie);
                     }
-                    else {
-                        protoResponse.setMessage("Nenhum filme encontrado com o g\u00EAnero ".concat(data));
+                    if (moviesMongo.length === 0) {
+                        response.setMessage("Nenhum filme encontrado com o g\u00EAnero ".concat(data));
                     }
                     return [3 /*break*/, 5];
                 case 3:
                     error_6 = _a.sent();
                     if (error_6 instanceof yup_1.ValidationError) {
-                        protoResponse.setMessage(error_6.message);
+                        response.setMessage(error_6.message);
                     }
                     else {
-                        protoResponse.setMessage("Erro durante a busca pelo filme no banco de dados.");
+                        response.setMessage("Erro durante a busca pelo filme no banco de dados.");
                     }
-                    protoResponse.setSucess(false);
-                    protoResponse.setMoviesList([]);
+                    response.setSucess(false);
                     return [3 /*break*/, 5];
                 case 4:
-                    callback(null, protoResponse);
+                    call.write(response);
+                    call.end();
                     return [7 /*endfinally*/];
                 case 5: return [2 /*return*/];
             }
         });
     });
 }
-function myGetMoviesByActor(call, callback) {
+function myGetMoviesByActor(call) {
     return __awaiter(this, void 0, void 0, function () {
-        var protoResponse, data, query, moviesMongo, protoMovies, error_7;
+        var data, query, response, moviesMongo, _i, moviesMongo_3, item, protoMovie, error_7;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    protoResponse = new movies_pb_1.Response();
                     data = call.request.getData();
+                    query = { cast: { $elemMatch: { $eq: data } } };
+                    response = new movies_pb_1.Response();
                     _a.label = 1;
                 case 1:
                     _a.trys.push([1, 3, 4, 5]);
                     validation_1.requestGetValidation.validateSync(call.request.toObject());
-                    query = { cast: { $elemMatch: { $eq: data } } };
                     return [4 /*yield*/, collections.find(query).toArray()];
                 case 2:
                     moviesMongo = _a.sent();
-                    protoMovies = moviesMongo.map(function (item) { return (0, createMovieProtobuf_1.createMovieProtobuf)(item); });
-                    if (protoMovies.length) {
-                        protoResponse.setMoviesList(protoMovies);
+                    for (_i = 0, moviesMongo_3 = moviesMongo; _i < moviesMongo_3.length; _i++) {
+                        item = moviesMongo_3[_i];
+                        protoMovie = (0, createMovieProtobuf_1.createMovieProtobuf)(item);
+                        response.addMovies(protoMovie);
                     }
-                    else {
-                        protoResponse.setMessage("Nenhum filme encontrado com o ator ".concat(data));
+                    if (moviesMongo.length === 0) {
+                        response.setMessage("Nenhum filme encontrado com o ator ".concat(data));
                     }
                     return [3 /*break*/, 5];
                 case 3:
                     error_7 = _a.sent();
                     if (error_7 instanceof yup_1.ValidationError) {
-                        protoResponse.setMessage(error_7.message);
+                        response.setMessage(error_7.message);
                     }
                     else {
-                        protoResponse.setMessage("Erro durante a busca pelo filme no banco de dados.");
+                        response.setMessage("Erro durante a busca pelo filme no banco de dados.");
                     }
-                    protoResponse.setSucess(false);
-                    protoResponse.setMoviesList([]);
+                    response.setSucess(false);
                     return [3 /*break*/, 5];
                 case 4:
-                    callback(null, protoResponse);
+                    call.write(response);
+                    call.end();
                     return [7 /*endfinally*/];
                 case 5: return [2 /*return*/];
             }
