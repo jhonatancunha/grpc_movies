@@ -99,20 +99,23 @@ async function myDeleteMovie(call: grpc.ServerUnaryCall<Request>, callback: grpc
     }
 }
 
-async function myGetAllMovies(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
+async function myGetAllMovies(call: grpc.ServerWritableStream<Request, Response>){
     const protoResponse = new Response();
-
     try {
         const moviesMongo = await collections.find({}).toArray();
-        const protoMovies = moviesMongo.map(item => createMovieProtobuf(item));
 
-        protoResponse.setMoviesList(protoMovies);
+        for (const movie of moviesMongo) {
+            const protoMovie = createMovieProtobuf(movie);
+            protoResponse.addMovies(protoMovie);
+        }
     } catch (error) {
         protoResponse.setMoviesList([]);
     } finally{
-        callback(null, protoResponse);
+        call.write(protoResponse);
+        call.end();
     }
 }
+
 
 async function myCreateMovie(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
     const protoResponse = new Response();
@@ -172,69 +175,74 @@ async function myCreateMovie(call: grpc.ServerUnaryCall<Request>, callback: grpc
     }
 }
 
-async function myGetMoviesByGenre(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
+async function myGetMoviesByGenre(call: grpc.ServerWritableStream<Request, Response>) {
 
-    const protoResponse = new Response();
     const data = call.request.getData();
+    const query = { genres: { $elemMatch: { $eq: data } } };
+    const response = new Response();
 
     try {
         requestGetValidation.validateSync(call.request.toObject());
 
-        const query = { genres: { $elemMatch: { $eq: data } } };
-
         const moviesMongo = await collections.find(query).toArray();
-        const protoMovies = moviesMongo.map(item => createMovieProtobuf(item));
 
-        if(protoMovies.length){
-            protoResponse.setMoviesList(protoMovies);
-        }else{
-            protoResponse.setMessage(`Nenhum filme encontrado com o gênero ${data}`);
+        for (const item of moviesMongo) {
+            const protoMovie = createMovieProtobuf(item);
+            response.addMovies(protoMovie);
+        }
+
+        if (moviesMongo.length === 0) {
+            response.setMessage(`Nenhum filme encontrado com o gênero ${data}`);
         }
 
     } catch (error) {
         if (error instanceof ValidationError) {
-            protoResponse.setMessage(error.message);
+            response.setMessage(error.message);
         } else {
-            protoResponse.setMessage(`Erro durante a busca pelo filme no banco de dados.`);
+            response.setMessage(`Erro durante a busca pelo filme no banco de dados.`);
         }
-        protoResponse.setSucess(false);
-        protoResponse.setMoviesList([]);
+        response.setSucess(false);
     } finally {
-        callback(null, protoResponse);
+        call.write(response);
+        call.end();
     }
 }
 
-async function myGetMoviesByActor(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
-    const protoResponse = new Response();
+
+async function myGetMoviesByActor(call: grpc.ServerWritableStream<Request, Response>) {
+
     const data = call.request.getData();
+    const query = { cast: { $elemMatch: { $eq: data } } };
 
+    const response = new Response();
     try {
-
         requestGetValidation.validateSync(call.request.toObject());
 
-        const query = { cast: { $elemMatch: { $eq: data } } };
-
         const moviesMongo = await collections.find(query).toArray();
-        const protoMovies = moviesMongo.map(item => createMovieProtobuf(item));
 
-        if(protoMovies.length){
-            protoResponse.setMoviesList(protoMovies);
-        }else{
-            protoResponse.setMessage(`Nenhum filme encontrado com o ator ${data}`);
+        for (const item of moviesMongo) {
+            const protoMovie = createMovieProtobuf(item);
+            response.addMovies(protoMovie);
+        }
+
+        if (moviesMongo.length === 0) {
+            response.setMessage(`Nenhum filme encontrado com o ator ${data}`);
         }
 
     } catch (error) {
         if (error instanceof ValidationError) {
-            protoResponse.setMessage(error.message);
+            response.setMessage(error.message);
         } else {
-            protoResponse.setMessage(`Erro durante a busca pelo filme no banco de dados.`);
+            response.setMessage(`Erro durante a busca pelo filme no banco de dados.`);
         }
-        protoResponse.setSucess(false);
-        protoResponse.setMoviesList([]);
+
+        response.setSucess(false);
     } finally {
-        callback(null, protoResponse);
+        call.write(response);
+        call.end();
     }
 }
+
 
 async function myUpdateMovie(call: grpc.ServerUnaryCall<Request>, callback: grpc.sendUnaryData<Response>){
     const protoResponse = new Response();
