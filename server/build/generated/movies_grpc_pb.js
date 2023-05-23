@@ -47,7 +47,7 @@ var MongoMoviesService = exports.MongoMoviesService = {
     getAllMovies: {
         path: '/mongomovies.MongoMovies/getAllMovies',
         requestStream: false,
-        responseStream: false,
+        responseStream: true,
         requestType: movies_pb.Request,
         responseType: movies_pb.Response,
         requestSerialize: serialize_mongomovies_Request,
@@ -80,7 +80,7 @@ var MongoMoviesService = exports.MongoMoviesService = {
     getMoviesByGenre: {
         path: '/mongomovies.MongoMovies/getMoviesByGenre',
         requestStream: false,
-        responseStream: false,
+        responseStream: true,
         requestType: movies_pb.Request,
         responseType: movies_pb.Response,
         requestSerialize: serialize_mongomovies_Request,
@@ -91,7 +91,7 @@ var MongoMoviesService = exports.MongoMoviesService = {
     getMoviesByActor: {
         path: '/mongomovies.MongoMovies/getMoviesByActor',
         requestStream: false,
-        responseStream: false,
+        responseStream: true,
         requestType: movies_pb.Request,
         responseType: movies_pb.Response,
         requestSerialize: serialize_mongomovies_Request,
