@@ -1,14 +1,26 @@
-### Como gerar proto?
 
-```bash
-yarn build:proto
-```
+### Como executar
 
-### Como usar cada função gRPC?
+1. Execute o seguinte comando: `yarn`
+2. Execute o comando: `yarn build:proto`
+3. Por fim, execute `yarn start`
+
+### Bibliotecas usadas (descrever as não padrões)
+
+- `google-protobuf`: biblioteca do protobuf
+- `mongodb`: usada para se conectar ao mongodb
+- `ts-protoc-gen`: compilador do protobuf para typescript
+- `yup`: usada para validação
+- `@grpc/proto-loader`: utilitario para carregar arquivos .proto
+- `dotenv`: usar variaveis de ambiente
+- `grpc`: biblioteca grpc node
+- `grpc-tools`: ferramentas para desenvolver com grpc no node
+
+### Exemplos de uso
 
 Veja o arquivo `Insomnia_2023-05-13.json`
 
-### createMovie
+#### createMovie
 
 Construa o objeto de `Request` da seguinte forma:
 
@@ -20,7 +32,7 @@ Construa o objeto de `Request` da seguinte forma:
 }
 ```
 
-### getMoviesById
+#### getMoviesById
 
 Construa o objeto de `Request` da seguinte forma:
 
@@ -30,7 +42,7 @@ Construa o objeto de `Request` da seguinte forma:
 }
 ```
 
-### updateMovie
+#### updateMovie
 
 Construa o objeto de `Request` da seguinte forma:
 
@@ -43,7 +55,7 @@ Construa o objeto de `Request` da seguinte forma:
 }
 ```
 
-### deleteMovie
+#### deleteMovie
 
 Construa o objeto de `Request` da seguinte forma:
 
@@ -53,7 +65,7 @@ Construa o objeto de `Request` da seguinte forma:
 }
 ```
 
-### getMoviesByActor
+#### getMoviesByActor
 
 Construa o objeto de `Request` da seguinte forma:
 
@@ -63,7 +75,7 @@ Construa o objeto de `Request` da seguinte forma:
 }
 ```
 
-### getMoviesByGenre
+#### getMoviesByGenre
 
 Construa o objeto de `Request` da seguinte forma:
 
