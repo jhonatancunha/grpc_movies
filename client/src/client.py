@@ -26,7 +26,10 @@ from generated.movies_pb2 import Writer
 from generated.movies_pb2 import Director
 
 def connect():
-    channel = grpc.insecure_channel("0.0.0.0:50051")
+    maxMsgLength = 1024 * 1024 * 1024
+    channel = grpc.insecure_channel("0.0.0.0:50051", options=[('grpc.max_message_length', maxMsgLength),
+                                         ('grpc.max_send_message_length', maxMsgLength),
+                                         ('grpc.max_receive_message_length', maxMsgLength)])
     stub = movies_pb2_grpc.MongoMoviesStub(channel)
 
     return stub
@@ -230,7 +233,7 @@ def update(connection):
     founded_movie.fullplot = fullplot if fullplot.strip() != "" else founded_movie.fullplot
 
     year = input("Informe o ano de criação do filme <string>: ")
-    founded_movie.year = int(year) if year.strip() != "" else founded_movie.year
+    founded_movie.year = year if year.strip() != "" else founded_movie.year
 
     languages = input(
         "Informe os idiomas em que o filme está disponível <string>: ").split(" ")
@@ -244,7 +247,7 @@ def update(connection):
             founded_movie.languages.append(new_language)
 
     released = input("Informe a data de lançamento <string>: ")
-    founded_movie.released = int(released) if released.strip() != "" else founded_movie.released
+    founded_movie.released = released if released.strip() != "" else founded_movie.released
 
     directors = input("Informe os diretores do filme <string>: ").split(" ")
 

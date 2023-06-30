@@ -446,7 +446,13 @@ function myUpdateMovie(call, callback) {
     });
 }
 connectMongo().then(function () {
-    var server = new grpc_1.default.Server();
+    var maxMessageSize = 1024 * 1024 * 1024;
+    var serverOptions = {
+        'grpc.max_message_length': maxMessageSize,
+        'grpc.max_receive_message_length': maxMessageSize,
+        'grpc.max_send_message_length': maxMessageSize
+    };
+    var server = new grpc_1.default.Server(serverOptions);
     server.addService(movies_grpc_pb_1.MongoMoviesService, {
         getMoviesById: myGetMovieById,
         createMovie: myCreateMovie,

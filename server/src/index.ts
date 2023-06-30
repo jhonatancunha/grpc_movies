@@ -302,7 +302,13 @@ async function myUpdateMovie(call: grpc.ServerUnaryCall<Request>, callback: grpc
 
 
 connectMongo().then(() => {
-    const server = new grpc.Server();
+    const maxMessageSize = 1024 * 1024 * 1024;
+    const serverOptions = {
+        'grpc.max_message_length': maxMessageSize,
+        'grpc.max_receive_message_length': maxMessageSize,
+        'grpc.max_send_message_length': maxMessageSize
+    };
+    const server = new grpc.Server(serverOptions);
     server.addService(MongoMoviesService, {
         getMoviesById: myGetMovieById, //ok
         createMovie: myCreateMovie,
@@ -312,6 +318,8 @@ connectMongo().then(() => {
         getMoviesByActor: myGetMoviesByActor, //ok
         getMoviesByGenre: myGetMoviesByGenre, //ok
     });
+
+
 
     server.bind('0.0.0.0:50051', grpc.ServerCredentials.createInsecure());
     server.start();
